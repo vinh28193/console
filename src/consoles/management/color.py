@@ -6,7 +6,7 @@ import functools
 import os
 import sys
 
-from django.utils import termcolors
+from consoles.utils import termcolors
 
 try:
     import colorama

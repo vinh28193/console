@@ -8,7 +8,7 @@ from argparse import (
 from collections import defaultdict
 from difflib import get_close_matches
 from importlib import import_module
-
+from consoles.apps import apps
 from consoles.management.base import (
     BaseCommand, CommandError, CommandParser,
     handle_default_options
@@ -56,9 +56,9 @@ def get_commands():
     commands = {name: "consoles" for name in find_commands(__path__[0])}
 
     # auto discovery
-    # for path in reversed(paths):
-    #     path = os.path.join(path, "management")
-    #     commands.update({name: app_config.name for name in find_commands(path)})
+    for app_config in reversed(apps.get_app_configs()):
+        path = os.path.join(app_config.path, "management")
+        commands.update({name: app_config.name for name in find_commands(path)})
 
     return commands
 
@@ -191,7 +191,6 @@ class ManagementUtility:
             ]
             commands_dict = defaultdict(lambda: [])
             for name, app in get_commands().items():
-                print(name, app)
                 if app == "consoles":
                     app = "consoles"
                 else:
@@ -325,7 +324,7 @@ class ManagementUtility:
                 sys.stdout.write(self.main_help_text() + "\n")
             else:
                 self.fetch_command(options.args[0]).print_help(
-                    self.prog_name, options.args[0]
+                    self.program_name, options.args[0]
                 )
         elif self.argv[1:] in (["--help"], ["-h"]):
             sys.stdout.write(self.main_help_text() + "\n")

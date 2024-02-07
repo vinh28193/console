@@ -40,4 +40,10 @@ setuptools.setup(
     install_requires=[
         "requests"
     ],
+    include_package_data=True,
+    entry_points={
+        'console_scripts': [
+            'consoles = consoles.__main__:main',
+        ]
+    },
 )
