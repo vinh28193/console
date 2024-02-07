@@ -24,16 +24,7 @@ class cached_property:
             "__set_name__() on it."
         )
 
-    def __init__(self, func, name=None):
-        from django.utils.deprecation import RemovedInDjango50Warning
-
-        if name is not None:
-            warnings.warn(
-                "The name argument is deprecated as it's unnecessary as of "
-                "Python 3.6.",
-                RemovedInDjango50Warning,
-                stacklevel=2,
-            )
+    def __init__(self, func):
         self.real_func = func
         self.__doc__ = getattr(func, "__doc__")
 
@@ -401,17 +392,12 @@ class SimpleLazyObject(LazyObject):
     A lazy object initialized from any function.
 
     Designed for compound objects of unknown type. For builtins or objects of
-    known type, use django.utils.functional.lazy.
+    known type.
     """
 
     def __init__(self, func):
         """
         Pass in a callable that returns the object to be wrapped.
-
-        If copies are made of the resulting SimpleLazyObject, which can happen
-        in various circumstances within Django, then you must ensure that the
-        callable can be safely run more than once and will return the same
-        value.
         """
         self.__dict__["_setupfunc"] = func
         super().__init__()

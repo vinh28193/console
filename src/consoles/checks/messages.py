@@ -23,8 +23,6 @@ class CheckMessage:
         )
 
     def __str__(self):
-        from django.db import models
-
         if self.obj is None:
             obj = "?"
         else:
@@ -47,7 +45,7 @@ class CheckMessage:
         return self.level >= level
 
     def is_silenced(self):
-        from django.conf import settings
+        from consoles.conf import settings
 
         return self.id in settings.SILENCED_SYSTEM_CHECKS
 

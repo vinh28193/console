@@ -1,12 +1,7 @@
 import importlib
 import os
-import time
-import traceback
-import warnings
-from pathlib import Path
 
 from consoles.conf import global_settings
-from django.core.exceptions import ImproperlyConfigured
 from consoles.utils.functional import LazyObject, empty
 
 ENVIRONMENT_VARIABLE = "SETTINGS_MODULE"
@@ -29,9 +24,9 @@ class SettingsReference(str):
 
 class LazySettings(LazyObject):
     """
-    A lazy proxy for either global Django settings or a custom settings object.
+    A lazy proxy for either global settings or a custom settings object.
     The user can manually configure settings prior to using them. Otherwise,
-    Django uses the settings module pointed to by DJANGO_SETTINGS_MODULE.
+    uses the settings module pointed to by SETTINGS_MODULE.
     """
 
     def _setup(self, name=None):
@@ -42,7 +37,7 @@ class LazySettings(LazyObject):
         """
         if not os.environ.get(ENVIRONMENT_VARIABLE):
             desc = ("setting %s" % name) if name else "settings"
-            raise ImproperlyConfigured(
+            raise ImportError(
                 "Requested %s, but settings are not configured. "
                 "You must either define the environment variable %s "
                 "or call settings.configure() before accessing settings."
