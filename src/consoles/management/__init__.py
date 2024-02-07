@@ -2,6 +2,8 @@ import functools
 import os
 import pkgutil
 import sys
+
+import consoles
 from argparse import (
     _AppendConstAction, _CountAction, _StoreConstAction, _SubParsersAction,
 )
@@ -9,6 +11,7 @@ from collections import defaultdict
 from difflib import get_close_matches
 from importlib import import_module
 from consoles.apps import apps
+from consoles.conf import settings
 from consoles.management.base import (
     BaseCommand, CommandError, CommandParser,
     handle_default_options
@@ -176,6 +179,7 @@ class ManagementUtility:
         self.program_name = os.path.basename(self.argv[0])
         if self.program_name == "__main__.py":
             self.program_name = "python -m consoles"
+        self.settings_exception = None
 
     def main_help_text(self, commands_only=False):
         """Return the script's main help text, as a string."""
@@ -202,6 +206,16 @@ class ManagementUtility:
                 usage.append(style.NOTICE("[%s]" % app))
                 for name in sorted(commands_dict[app]):
                     usage.append("    %s" % name)
+
+            # Output an extra note if settings are not properly configured
+            if self.settings_exception is not None:
+                usage.append(
+                    style.NOTICE(
+                        "Note that only core commands are listed as settings "
+                        "are not properly configured (error: %s)."
+                        % self.settings_exception
+                    )
+                )
         return "\n".join(usage)
 
     def fetch_command(self, subcommand):
@@ -307,6 +321,7 @@ class ManagementUtility:
             add_help=False,
             allow_abbrev=False,
         )
+        parser.add_argument("--settings")
         parser.add_argument("--pythonpath")
         parser.add_argument("args", nargs="*")  # catch-all
         try:
@@ -314,6 +329,14 @@ class ManagementUtility:
             handle_default_options(options)
         except CommandError:
             pass  # Ignore any option errors at this point.
+
+        try:
+            settings.INSTALLED_APPS
+        except ImportError as exc:
+            self.settings_exception = exc
+
+        if settings.configured:
+            consoles.setup()
 
         self.autocomplete()
 
@@ -334,5 +357,6 @@ class ManagementUtility:
 
 def execute_from_command_line(argv=None):
     """Run a ManagementUtility."""
+
     utility = ManagementUtility(argv)
     utility.execute()

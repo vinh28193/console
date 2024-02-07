@@ -40,11 +40,7 @@ class LazySettings(LazyObject):
         is used the first time settings are needed, if the user hasn't
         configured settings manually.
         """
-        settings_module = global_settings_module
-        if os.environ.get(ENVIRONMENT_VARIABLE):
-            settings_module = os.environ[ENVIRONMENT_VARIABLE]
-        print(settings_module)
-        if not settings_module:
+        if not os.environ.get(ENVIRONMENT_VARIABLE):
             desc = ("setting %s" % name) if name else "settings"
             raise ImproperlyConfigured(
                 "Requested %s, but settings are not configured. "
@@ -53,7 +49,7 @@ class LazySettings(LazyObject):
                 % (desc, ENVIRONMENT_VARIABLE)
             )
 
-        self._wrapped = Settings(settings_module)
+        self._wrapped = Settings(os.environ[ENVIRONMENT_VARIABLE])
 
     def __repr__(self):
         # Hardcode the class name as otherwise it yields 'Settings'.

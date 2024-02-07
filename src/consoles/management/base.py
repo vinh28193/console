@@ -87,8 +87,11 @@ def handle_default_options(options):
     so that ManagementUtility can handle them before searching for
     user commands.
     """
-    # if options.pythonpath:
-    #     sys.path.insert(0, options.pythonpath)
+    if options.settings:
+        from consoles.conf import ENVIRONMENT_VARIABLE
+        os.environ[ENVIRONMENT_VARIABLE] = options.settings
+    if options.pythonpath:
+        sys.path.insert(0, options.pythonpath)
 
 
 def no_translations(handle_func):
@@ -282,21 +285,31 @@ class BaseCommand:
         ):
             raise TypeError("requires_system_checks must be a list or tuple.")
 
-    def create_parser(self, prog_name, subcommand, **kwargs):
+    def get_version(self):
+        return ""
+
+    def create_parser(self, program_name, subcommand, **kwargs):
         """
         Create and return the ``ArgumentParser`` which will be used to
         parse the arguments to this command.
         """
-        kwargs.setdefault("formatter_class", HelpFormatter)
+        kwargs.setdefault("formatter_class", CommandHelpFormatter)
         parser = CommandParser(
-            prog="%s %s" % (os.path.basename(prog_name), subcommand),
+            prog="%s %s" % (os.path.basename(program_name), subcommand),
             description=self.help or None,
             missing_args_message=getattr(self, "missing_args_message", None),
-            called_from_command_line=getattr(self, "_called_from_command_line",
-                                             None),
+            called_from_command_line=getattr(
+                self, "_called_from_command_line", None
+            ),
             **kwargs,
         )
-
+        self.add_base_argument(
+            parser,
+            "--version",
+            action="version",
+            version=self.get_version(),
+            help="Show program's version number and exit.",
+        )
         self.add_base_argument(
             parser,
             "-v",
@@ -308,6 +321,23 @@ class BaseCommand:
                 "Verbosity level; 0=minimal output, 1=normal output, "
                 "2=verbose output, "
                 "3=very verbose output"
+            ),
+        )
+        self.add_base_argument(
+            parser,
+            "--settings",
+            help=(
+                "The Python path to a settings module, e.g. "
+                '"myproject.settings.main". If this isn\'t provided, the '
+                "SETTINGS_MODULE environment variable will be used."
+            ),
+        )
+        self.add_base_argument(
+            parser,
+            "--pythonpath",
+            help=(
+                "A directory to add to the Python path, e.g. "
+                '"/home/myproject".'
             ),
         )
         self.add_base_argument(
