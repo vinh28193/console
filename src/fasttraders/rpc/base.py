@@ -5,6 +5,27 @@ from fasttraders.enums import State, RPCMessageType
 from .types import RPCSendMsg
 
 
+class RPCException(Exception):
+    """
+    Should be raised with a rpc-formatted message in an _rpc_* method
+    if the required state is wrong, i.e.:
+
+    raise RPCException('*Status:* `no active`')
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(self)
+        self.message = message
+
+    def __str__(self):
+        return self.message
+
+    def __json__(self):
+        return {
+            'msg': self.message
+        }
+
+
 class RPC:
 
     def __init__(self, bot):
