@@ -15,10 +15,10 @@ class Bot:
         # RPC
         self.rpc: RPCManager = RPCManager(self)
         # Set initial bot state from config
-        initial_state = getattr(settings, "BOT_INIT_STATE", State.STARTED.name)
+        initial_state = getattr(settings, "BOT_INIT_STATE", State.STOPPED.name)
         self.state = State[initial_state.upper()]
 
-        # Protect exit-logic from forcesell and vice versa
+        # Protect logic
         self._exit_lock = Lock()
 
         self._schedule = SafeScheduler()

@@ -5,12 +5,11 @@ from datetime import datetime, timezone, timedelta
 from os import getpid
 from typing import Optional, Callable, Any
 
+from consoles.conf import settings
+from fasttraders.log import logger
 from fasttraders.bot import Bot
 from fasttraders.enums import State
-
-logger = logging.Logger(__name__)
-logger.info = print
-RETRY_TIMEOUT = 100
+from fasttraders.ultis.timeframe import timeframe_to_next_date, format_date
 
 
 class Worker:
@@ -35,8 +34,8 @@ class Worker:
     def _init(self) -> None:
         # Init the instance of the bot
         self.bot = Bot()
-        self._throttle_secs = 60
-        self._heartbeat_interval = 60
+        self._throttle_secs = getattr(settings, 'PROCESS_THROTTLE_SECS', 5)
+        self._heartbeat_interval = getattr(settings, 'HEARTBEAT_INTERVAL', 60)
 
         # Todo: sdnotify
         self._sd_notify = None
@@ -89,14 +88,14 @@ class Worker:
             # Ping systemd watchdog before sleeping in the stopped state
             self._notify("WATCHDOG=1\nSTATUS=State: STOPPED.")
 
-            self._throttle(func=self.stopped)
+            self._throttle(func=self.stopped, throttle_secs=self._throttle_secs)
 
         elif state == State.RUNNING:
             # Ping systemd watchdog before throttling
             self._notify("WATCHDOG=1\nSTATUS=State: RUNNING.")
 
             # Use an offset of 1s to ensure a new candle has been issued
-            self._throttle(func=self.running)
+            self._throttle(func=self.running, throttle_secs=self._throttle_secs)
 
         if self._heartbeat_interval:
             now = time.time()
@@ -109,48 +108,45 @@ class Worker:
 
         return state
 
-    def _throttle(self, func: Callable[..., Any], *args, **kwargs) -> Any:
+    def _throttle(
+        self, func: Callable[..., Any], throttle_secs: float,
+        timeframe: Optional[str] = None, timeframe_offset: float = 1.0,
+        *args, **kwargs
+    ) -> Any:
         """
         Throttles the given callable that it
         takes at least `min_secs` to finish execution.
         :param func: Any callable
         :kwargs throttle_secs: throttling interation execution time limit in
         seconds
-        :kwargs timeframe: ensure iteration is executed at the beginning of
-        the next candle.
-        :kwargs timeframe_offset: offset in seconds to apply to the next
-        candle time.
         :return: Any (result of execution of func)
         """
         last_throttle_start_time = time.time()
         logger.debug("========================================")
         result = func(*args, **kwargs)
         time_passed = time.time() - last_throttle_start_time
-        sleep_duration = self._throttle_secs - time_passed
-        # if kwargs.get("timeframe"):
-        #     next_tf = timeframe_to_next_date(timeframe)
-        #     # Maximum throttling should be until new candle arrives
-        #     # Offset is added to ensure a new candle has been issued.
-        #     next_tft = next_tf.timestamp() - time.time()
-        #     next_tf_with_offset = next_tft + timeframe_offset
-        #     if next_tft < sleep_duration and sleep_duration < \
-        #         next_tf_with_offset:
-        #         # Avoid hitting a new loop between the new candle and the
-        #         # candle with offset
-        #         sleep_duration = next_tf_with_offset
-        #     sleep_duration = min(sleep_duration, next_tf_with_offset)
+        sleep_duration = throttle_secs - time_passed
+        if timeframe:
+            next_tf = timeframe_to_next_date(timeframe)
+            next_tft = next_tf.timestamp() - time.time()
+            next_tf_with_offset = next_tft + timeframe_offset
+            if next_tft < sleep_duration < next_tf_with_offset:
+                sleep_duration = next_tf_with_offset
+            sleep_duration = min(sleep_duration, next_tf_with_offset)
         sleep_duration = max(sleep_duration, 0.0)
         next_iter = (
             datetime.now(timezone.utc) +
             timedelta(seconds=sleep_duration)
         )
 
-        print(
+        logger.info(
             f"Throttling with '{func.__name__}()': sleep for "
-            f"{sleep_duration:.2f} s, "
-            f"last iteration took {time_passed:.2f} s. "
-            f"next: {next_iter}"
+            f"{sleep_duration:.2f}s, "
+            f"last iteration took {time_passed:.2f}s. "
+            f"next: {format_date(next_iter)}"
         )
+
+        self._sleep(sleep_duration)
         return result
 
     @staticmethod
@@ -169,11 +165,11 @@ class Worker:
             hint = 'Issue `/start` if you think it is safe to restart.'
 
             self.bot.notify_status(
-                f'*OperationalException:*\n```\n{tb}```\n {hint}',
+                f'*Exception:*\n```\n{tb}```\n {hint}',
                 msg_type='Exception'
             )
 
-            logger.exception('OperationalException. Stopping trader ...')
+            logger.exception('Stopping bot ...')
             self.bot.state = State.STOPPED
 
     def exit(self) -> None:
