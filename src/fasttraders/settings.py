@@ -15,6 +15,9 @@ HEARTBEAT_INTERVAL = 60
 # Bot initialization with state name
 BOT_INIT_STATE = 'STARTED'
 
+# Data
+DATA_PATH = '/data/'
+
 # Telegram
 TELEGRAM_RELOAD = False
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
