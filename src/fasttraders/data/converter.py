@@ -222,15 +222,14 @@ def convert_ohlcv_format(
 ):
     """
     Convert OHLCV from one format to another
-    :param config: Config dictionary
     :param convert_from: Source format
     :param convert_to: Target format
     :param erase: Erase source data (does not apply if source and target
     format are identical)
     """
-    from .utils import get_datahandler
-    src = get_datahandler(datadir, convert_from)
-    trg = get_datahandler(datadir, convert_to)
+    from .utils import get_data_handler
+    src = get_data_handler(datadir, convert_from)
+    trg = get_data_handler(datadir, convert_to)
     pass
 
 
@@ -332,17 +331,18 @@ def convert_trades_to_ohlcv(
     datadir: Path,
     timerange: TimeRange,
     erase: bool = False,
-    data_format_ohlcv: str = 'feather',
-    data_format_trades: str = 'feather',
+    data_format_ohlcv: str = 'json',
+    data_format_trades: str = 'json',
     candle_type: CandleType = CandleType.SPOT
 ) -> None:
     """
     Convert stored trades data to ohlcv data
     """
-    from .utils import get_datahandler
-    data_handler_trades = get_datahandler(datadir,
-                                          data_format=data_format_trades)
-    data_handler_ohlcv = get_datahandler(datadir, data_format=data_format_ohlcv)
+    from .utils import get_data_handler
+    data_handler_trades = get_data_handler(
+        datadir, data_format=data_format_trades
+    )
+    data_handler_ohlcv = get_data_handler(datadir, data_format=data_format_ohlcv)
     if not pairs:
         pairs = data_handler_trades.trades_get_pairs(datadir)
 

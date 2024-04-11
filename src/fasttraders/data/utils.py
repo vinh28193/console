@@ -1,10 +1,23 @@
+from datetime import timedelta, datetime
 from pathlib import Path
-from typing import Optional, Type
-
+from typing import Optional, Type, List, Tuple
+from pandas import concat, DataFrame
+from fasttraders.constants import (
+    DATETIME_PRINT_FORMAT,
+    DEFAULT_DATAFRAME_COLUMNS
+)
+from fasttraders.data.converter import (
+    trades_list_to_df,
+    trades_df_remove_duplicates, ohlcv_to_dataframe, clean_ohlcv_dataframe
+)
+from fasttraders.enums import CandleType
+from fasttraders.log import logger
+from fasttraders.ultis.timeframe import format_ms_time, dt_ts, dt_now
+from fasttraders.ultis.timerange import TimeRange
 from .handler import DataHandler
 
 
-def get_datahandlerclass(datatype: str) -> Type[DataHandler]:
+def get_data_handler_class(datatype: str) -> Type[DataHandler]:
     """
     Get datahandler class.
     Could be done using Resolvers, but since this may be called often and
@@ -21,7 +34,7 @@ def get_datahandlerclass(datatype: str) -> Type[DataHandler]:
         raise ValueError(f"No datahandler for datatype {datatype} available.")
 
 
-def get_datahandler(
+def get_data_handler(
     datadir: Path, data_format: Optional[str] = None,
     data_handler: Optional[DataHandler] = None
 ) -> DataHandler:
@@ -33,6 +46,318 @@ def get_datahandler(
     """
 
     if not data_handler:
-        HandlerClass = get_datahandlerclass(data_format or 'json')
+        HandlerClass = get_data_handler_class(data_format or 'json')
         data_handler = HandlerClass(datadir)
     return data_handler
+
+
+def _load_cached_data_for_updating(
+    pair: str,
+    timeframe: str,
+    timerange: Optional[TimeRange],
+    data_handler: DataHandler,
+    candle_type: CandleType,
+    prepend: bool = False,
+) -> Tuple[DataFrame, Optional[int], Optional[int]]:
+    """
+    Load cached data to download more data.
+    If timerange is passed in, checks whether data from an before the stored
+    data will be
+    downloaded.
+    If that's the case then what's available should be completely overwritten.
+    Otherwise downloads always start at the end of the available data to
+    avoid data gaps.
+    Note: Only used by download_pair_history().
+    """
+    start = None
+    end = None
+    if timerange:
+        if timerange.starttype == 'date':
+            start = timerange.startdt
+        if timerange.stoptype == 'date':
+            end = timerange.stopdt
+
+    # Intentionally don't pass timerange in - since we need to load the full
+    # dataset.
+    data = data_handler.ohlcv_load(
+        pair, timeframe=timeframe,
+        timerange=None, fill_missing=False,
+        drop_incomplete=True, warn_no_data=False,
+        candle_type=candle_type
+    )
+    if not data.empty:
+        if not prepend and start and start < data.iloc[0]['date']:
+            # Earlier data than existing data requested, redownload all
+            data = DataFrame(columns=DEFAULT_DATAFRAME_COLUMNS)
+        else:
+            if prepend:
+                end = data.iloc[0]['date']
+            else:
+                start = data.iloc[-1]['date']
+    start_ms = int(start.timestamp() * 1000) if start else None
+    end_ms = int(end.timestamp() * 1000) if end else None
+    return data, start_ms, end_ms
+
+
+def _download_pair_history(
+    pair: str, *,
+    datadir: Path,
+    timeframe: str = '5m',
+    process: str = '',
+    new_pairs_days: int = 30,
+    data_handler: Optional[DataHandler] = None,
+    timerange: Optional[TimeRange] = None,
+    candle_type: CandleType,
+    erase: bool = False,
+    prepend: bool = False,
+
+) -> bool:
+    """
+    Download latest candles from the exchange for the pair and timeframe
+    passed in parameters
+    The data is downloaded starting from the last correct data that
+    exists in a cache. If timerange starts earlier than the data in the cache,
+    the full data will be redownloaded
+
+    :param pair: pair to download
+    :param timeframe: Timeframe (e.g "5m")
+    :param timerange: range of time to download
+    :param candle_type: Any of the enum CandleType (must match trading mode!)
+    :param erase: Erase existing data
+    :return: bool with success state
+    """
+    data_handler = get_data_handler(datadir, data_handler=data_handler)
+
+    try:
+        if erase:
+            if data_handler.ohlcv_purge(
+                pair, timeframe, candle_type=candle_type
+            ):
+                logger.info(
+                    f'Deleting existing data for pair {pair}, {timeframe}, '
+                    f'{candle_type}.')
+
+        data, since_ms, until_ms = _load_cached_data_for_updating(
+            pair, timeframe, timerange,
+            data_handler=data_handler,
+            candle_type=candle_type,
+            prepend=prepend)
+        if not since_ms:
+            since_ms = int(
+                (datetime.now() - timedelta(days=new_pairs_days)).timestamp()
+            ) * 1000
+        logger.info(
+            f'({process}) - Download history data for "{pair}", {timeframe}, '
+            f'{candle_type} and store in {datadir}. '
+            f'From {format_ms_time(since_ms)} to '
+            f'{format_ms_time(until_ms) if until_ms else "now"}'
+        )
+
+        logger.debug(
+            "Current Start: %s",
+            f"{data.iloc[0]['date']:{DATETIME_PRINT_FORMAT}}"
+            if not data.empty else 'None'
+        )
+        logger.debug(
+            "Current End: %s",
+            f"{data.iloc[-1]['date']:{DATETIME_PRINT_FORMAT}}"
+            if not data.empty else 'None'
+        )
+        logger.info(f"Getting history of {pair}, timeframe: {timeframe}")
+        # Default since_ms to 30 days if nothing is given
+        new_data = []  # Todo: fetch on API
+        new_dataframe = ohlcv_to_dataframe(
+            new_data, timeframe, pair, fill_missing=False, drop_incomplete=True
+        )
+        if data.empty:
+            data = new_dataframe
+        else:
+            # Run cleaning again to ensure there were no duplicate candles
+            # Especially between existing and new data.
+            data = clean_ohlcv_dataframe(
+                concat([data, new_dataframe], axis=0),
+                timeframe, pair,
+                fill_missing=False,
+                drop_incomplete=False
+            )
+
+        logger.debug(
+            "New Start: %s",
+            f"{data.iloc[0]['date']:{DATETIME_PRINT_FORMAT}}"
+            if not data.empty else 'None'
+        )
+        logger.debug(
+            "New End: %s",
+            f"{data.iloc[-1]['date']:{DATETIME_PRINT_FORMAT}}"
+            if not data.empty else 'None'
+        )
+
+        data_handler.ohlcv_store(
+            pair, timeframe, data=data, candle_type=candle_type
+        )
+        return True
+
+    except Exception:
+        logger.exception(
+            f'Failed to download history data for pair: "{pair}", timeframe: '
+            f'{timeframe}.'
+        )
+        return False
+
+
+def refresh_backtest_ohlcv_data(
+    pairs: List[str], timeframes: List[str],
+    datadir: Path, trading_mode: str,
+    timerange: Optional[TimeRange] = None,
+    new_pairs_days: int = 30, erase: bool = False,
+    data_format: Optional[str] = None,
+    prepend: bool = False,
+
+) -> List[str]:
+    """
+    Refresh stored ohlcv data for backtesting and hyperopt operations.
+    Used by freqtrade download-data subcommand.
+    :return: List of pairs that are not available.
+    """
+    pairs_not_available = []
+    data_handler = get_data_handler(datadir, data_format)
+    candle_type = CandleType.get_default(trading_mode)
+    process = ''
+    list_pairs = []  # Todo: fetch form API
+    for idx, pair in enumerate(pairs, start=1):
+        if pair not in list_pairs:
+            pairs_not_available.append(pair)
+            logger.info(f"Skipping pair {pair}...")
+            continue
+        for timeframe in timeframes:
+            logger.debug(
+                f'Downloading pair {pair}, {candle_type}, interval '
+                f'{timeframe}.')
+            process = f'{idx}/{len(pairs)}'
+            _download_pair_history(
+                pair=pair, process=process,
+                datadir=datadir,
+                timerange=timerange,
+                data_handler=data_handler,
+                timeframe=str(timeframe),
+                new_pairs_days=new_pairs_days,
+                candle_type=candle_type,
+                erase=erase, prepend=prepend
+            )
+    return pairs_not_available
+
+
+def _download_trade_history(
+    pair: str, *,
+    new_pairs_days: int = 30,
+    timerange: Optional[TimeRange] = None,
+    data_handler: DataHandler
+
+) -> bool:
+    """
+    Download trade history from the exchange.
+    Appends to previously downloaded trades data.
+    """
+    try:
+
+        until = None
+        since = 0
+        if timerange:
+            if timerange.starttype == 'date':
+                since = timerange.startts * 1000
+            if timerange.stoptype == 'date':
+                until = timerange.stopts * 1000
+
+        trades = data_handler.trades_load(pair)
+
+        if not trades.empty and 0 < since < trades.iloc[0]['timestamp']:
+            # since is before the first trade
+            logger.info(
+                f"Start ({trades.iloc[0]['date']:{DATETIME_PRINT_FORMAT}}) "
+                f"earlier than available data. Re-downloading trades for "
+                f"{pair}..."
+            )
+            trades = trades_list_to_df([])
+
+        from_id = trades.iloc[-1]['id'] if not trades.empty else None
+        if not trades.empty and since < trades.iloc[-1]['timestamp']:
+            # Reset since to the last available point
+            # - 5 seconds (to ensure we're getting all trades)
+            since = trades.iloc[-1]['timestamp'] - (5 * 1000)
+            logger.info(
+                f"Using last trade date -5s - Downloading trades for {pair} "
+                f"since: {format_ms_time(since)}.")
+
+        if not since:
+            since = dt_ts(dt_now() - timedelta(days=new_pairs_days))
+
+        logger.debug(
+            "Current Start: %s", 'None' if trades.empty else
+            f"{trades.iloc[0]['date']:{DATETIME_PRINT_FORMAT}}"
+        )
+        logger.debug(
+            "Current End: %s", 'None' if trades.empty else
+            f"{trades.iloc[-1]['date']:{DATETIME_PRINT_FORMAT}}"
+        )
+        logger.info(f"Current Amount of trades: {len(trades)}")
+
+        logger.info(
+            f"Getting histories for {pair}, since: {since}, until: {until}, "
+            f"from: {from_id}"
+        )
+        # Default since_ms to 30 days if nothing is given
+        new_trades = []
+        new_trades_df = trades_list_to_df(new_trades[1])
+        trades = concat([trades, new_trades_df], axis=0)
+        # Remove duplicates to make sure we're not storing data we don't need
+        trades = trades_df_remove_duplicates(trades)
+        data_handler.trades_store(pair, data=trades)
+
+        logger.debug(
+            "New Start: %s", 'None' if trades.empty else
+            f"{trades.iloc[0]['date']:{DATETIME_PRINT_FORMAT}}"
+        )
+        logger.debug(
+            "New End: %s", 'None' if trades.empty else
+            f"{trades.iloc[-1]['date']:{DATETIME_PRINT_FORMAT}}"
+        )
+        logger.info(f"New Amount of trades: {len(trades)}")
+        return True
+
+    except Exception:
+        logger.exception(
+            f'Failed to download historic trades for pair: "{pair}". '
+        )
+        return False
+
+
+def refresh_backtest_trades_data(
+    pairs: List[str], datadir: Path, timerange: TimeRange,
+    new_pairs_days: int = 30, erase: bool = False, data_format: str = 'feather'
+) -> List[str]:
+    """
+    Refresh stored trades data
+    Used by download-data subcommand.
+    :return: List of pairs that are not available.
+    """
+    pairs_not_available = []
+    data_handler = get_data_handler(datadir, data_format=data_format)
+    list_pairs = []  # Todo: fetch form API
+    for pair in pairs:
+        if pair not in list_pairs:
+            pairs_not_available.append(pair)
+            logger.info(f"Skipping pair {pair}...")
+            continue
+
+        if erase:
+            if data_handler.trades_purge(pair):
+                logger.info(f'Deleting existing data for pair {pair}.')
+
+        logger.info(f'Downloading trades for pair {pair}.')
+        _download_trade_history(
+            pair=pair,
+            new_pairs_days=new_pairs_days,
+            timerange=timerange,
+            data_handler=data_handler
+        )
+    return pairs_not_available

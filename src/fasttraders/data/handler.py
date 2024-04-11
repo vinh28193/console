@@ -208,8 +208,9 @@ class DataHandler(ABC):
         """
 
     @abstractmethod
-    def _trades_load(self, pair: str,
-                     timerange: Optional[TimeRange] = None) -> DataFrame:
+    def _trades_load(
+        self, pair: str, timerange: Optional[TimeRange] = None
+    ) -> DataFrame:
         """
         Load a pair from file, either .json.gz or .json
         :param pair: Load trades for this pair

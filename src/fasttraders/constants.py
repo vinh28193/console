@@ -15,6 +15,7 @@ TRADES_DTYPES = {
     'amount': 'float64',
     'cost': 'float64',
 }
+DL_DATA_TIMEFRAMES = ['1m', '5m']
 # datetime
 DATETIME_PRINT_FORMAT = '%Y-%m-%d %H:%M:%S'
 
