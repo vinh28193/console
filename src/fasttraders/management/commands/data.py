@@ -33,7 +33,7 @@ class Command(BaseCommand):
         # fetch from market
         available_pairs = list(MARKET_PAIRS)
         expanded_pairs = dynamic_expand_pairs(available_pairs)
-        options["download"] = True
+        # options["download"] = True
         api = None
         # Start downloading
 
@@ -55,7 +55,6 @@ class Command(BaseCommand):
                     erase=erase,
                     data_format=data_format_trades
                 )
-                print("pairs_not_available:", pairs_not_available)
                 # Convert downloaded trade data to different timeframes
                 convert_trades_to_ohlcv(
                     pairs=expanded_pairs, timeframes=timeframes,

@@ -52,17 +52,16 @@ MOCKED_MARKET_PAIRS = dict(zip(MARKET_PAIRS, MARKET_PAIRS))
 def generate_mock_trades(num_trades):
     trades = []
     for _ in range(num_trades):
-        timestamp = int(time.time() * 1000) - random.randint(1,
-                                                             1000000)  #
         # Random timestamp within the last 1000000 milliseconds
-        trade_id = str(
-            random.randint(100000000, 999999999))  # Random 9-digit trade ID
+        timestamp = int(time.time() * 1000) - random.randint(1, 1000000)
+        # Random 9-digit trade ID
+        trade_id = str(random.randint(100000000, 999999999))
         trade_type = random.choice(['market', 'limit'])
         side = random.choice(['buy', 'sell'])
-        price = round(random.uniform(1000, 50000),
-                      2)  # Random price between 1000 and 50000
-        amount = round(random.uniform(0.1, 10),
-                       2)  # Random amount between 0.1 and 10
+        # Random price between 1000 and 50000
+        price = round(random.uniform(1000, 50000), 2)
+        # Random amount between 0.1 and 10
+        amount = round(random.uniform(0.1, 10), 2)
         cost = round(price * amount, 2)
         trade = {
             'timestamp': timestamp,
@@ -75,6 +74,29 @@ def generate_mock_trades(num_trades):
         }
         trades.append(trade)
     return trades
+
+
+def generate_mock_ohlcv(symbol, timeframe, since, limit):
+    ohlcv = []
+    start_timestamp = since  # Convert since parameter to milliseconds
+    for i in range(limit):
+        # Convert timeframe to milliseconds
+        timestamp = start_timestamp + i * (timeframe * 60000)
+        # Random open price between 1000 and 50000
+        open_price = round(random.uniform(1000, 50000), 2)
+        # Random high price within 100 of open price
+        high_price = round(open_price + random.uniform(0, 100), 2)
+        # Random low price within 100 of open price
+        low_price = round(open_price - random.uniform(0, 100), 2)
+        # Random close price between low and high price
+        close_price = round(random.uniform(low_price, high_price), 2)
+        # Random volume between 1 and 1000
+        volume = round(random.uniform(1, 1000), 2)
+
+        ohlcv.append(
+            [timestamp, open_price, high_price, low_price, close_price, volume]
+        )
+    return ohlcv
 
 
 def create_datadir(datadir: Optional[str]) -> Path:
@@ -118,7 +140,6 @@ def get_data_handler(
     if not data_handler:
         HandlerClass = get_data_handler_class(data_format or 'json')
         data_handler = HandlerClass(datadir)
-        print("data_handler:", data_handler.__class__.__name__)
     return data_handler
 
 
@@ -237,7 +258,7 @@ def _download_pair_history(
         )
         logger.info(f"Getting history of {pair}, timeframe: {timeframe}")
         # Default since_ms to 30 days if nothing is given
-        new_data = []  # Todo: fetch on API
+        new_data = generate_mock_ohlcv(pair, 1, since_ms, 100)  # Todo: fetch on API
         new_dataframe = ohlcv_to_dataframe(
             new_data, timeframe, pair, fill_missing=False, drop_incomplete=True
         )
@@ -381,7 +402,6 @@ def _download_trade_history(
         )
         # Default since_ms to 30 days if nothing is given
         new_trades = [pair, generate_mock_trades(100)]
-        print("new:", new_trades)
         new_trades_df = trades_list_to_df(new_trades[1])
         trades = concat([trades, new_trades_df], axis=0)
         # Remove duplicates to make sure we're not storing data we don't need
@@ -399,9 +419,10 @@ def _download_trade_history(
         logger.info(f"New Amount of trades: {len(trades)}")
         return True
 
-    except Exception:
+    except Exception as e:
+        print(e.__class__.__name__, str(e))
         logger.exception(
-            f'Failed to download historic trades for pair: "{pair}". '
+            f'Failed to download histories trades for pair: "{pair}". '
         )
         return False
 
