@@ -1,6 +1,10 @@
+import random
+import time
 from datetime import timedelta, datetime
 from pathlib import Path
-from typing import Optional, Type, List, Tuple
+from typing import Optional, Type, List, Tuple, Union
+
+from consoles.conf import settings
 from pandas import concat, DataFrame
 from fasttraders.constants import (
     DATETIME_PRINT_FORMAT,
@@ -15,6 +19,72 @@ from fasttraders.log import logger
 from fasttraders.ultis.timeframe import format_ms_time, dt_ts, dt_now
 from fasttraders.ultis.timerange import TimeRange
 from .handler import DataHandler
+
+# MOCK
+MARKET_PAIRS = [
+    "ADA/BTC",
+    "BAT/BTC",
+    "DASH/BTC",
+    "ETC/BTC",
+    "ETH/BTC",
+    "GBYTE/BTC",
+    "LSK/BTC",
+    "LTC/BTC",
+    "NEO/BTC",
+    "NXT/BTC",
+    "TRX/BTC",
+    "STORJ/BTC",
+    "QTUM/BTC",
+    "WAVES/BTC",
+    "VTC/BTC",
+    "XLM/BTC",
+    "XMR/BTC",
+    "XVG/BTC",
+    "XRP/BTC",
+    "ZEC/BTC",
+    "BTC/USDT",
+    "LTC/USDT",
+    "ETH/USDT"
+]
+MOCKED_MARKET_PAIRS = dict(zip(MARKET_PAIRS, MARKET_PAIRS))
+
+
+def generate_mock_trades(num_trades):
+    trades = []
+    for _ in range(num_trades):
+        timestamp = int(time.time() * 1000) - random.randint(1,
+                                                             1000000)  #
+        # Random timestamp within the last 1000000 milliseconds
+        trade_id = str(
+            random.randint(100000000, 999999999))  # Random 9-digit trade ID
+        trade_type = random.choice(['market', 'limit'])
+        side = random.choice(['buy', 'sell'])
+        price = round(random.uniform(1000, 50000),
+                      2)  # Random price between 1000 and 50000
+        amount = round(random.uniform(0.1, 10),
+                       2)  # Random amount between 0.1 and 10
+        cost = round(price * amount, 2)
+        trade = {
+            'timestamp': timestamp,
+            'id': trade_id,
+            'type': trade_type,
+            'side': side,
+            'price': price,
+            'amount': amount,
+            'cost': cost
+        }
+        trades.append(trade)
+    return trades
+
+
+def create_datadir(datadir: Optional[str]) -> Path:
+    if isinstance(datadir, Path):
+        return datadir
+    folder = Path(datadir)
+    if not folder.is_dir():
+        folder.mkdir(parents=True)
+        logger.info(f'Created data directory: {datadir}')
+    return folder
 
 
 def get_data_handler_class(datatype: str) -> Type[DataHandler]:
@@ -35,7 +105,7 @@ def get_data_handler_class(datatype: str) -> Type[DataHandler]:
 
 
 def get_data_handler(
-    datadir: Path, data_format: Optional[str] = None,
+    datadir: Union[Path, str], data_format: Optional[str] = None,
     data_handler: Optional[DataHandler] = None
 ) -> DataHandler:
     """
@@ -44,10 +114,11 @@ def get_data_handler(
     :param data_handler: returns this datahandler if it exists or initializes
     a new one
     """
-
+    datadir = create_datadir(datadir)
     if not data_handler:
         HandlerClass = get_data_handler_class(data_format or 'json')
         data_handler = HandlerClass(datadir)
+        print("data_handler:", data_handler.__class__.__name__)
     return data_handler
 
 
@@ -101,7 +172,7 @@ def _load_cached_data_for_updating(
 
 def _download_pair_history(
     pair: str, *,
-    datadir: Path,
+    datadir: Union[Path, str],
     timeframe: str = '5m',
     process: str = '',
     new_pairs_days: int = 30,
@@ -126,6 +197,7 @@ def _download_pair_history(
     :param erase: Erase existing data
     :return: bool with success state
     """
+    datadir = create_datadir(datadir)
     data_handler = get_data_handler(datadir, data_handler=data_handler)
 
     try:
@@ -207,7 +279,8 @@ def _download_pair_history(
 
 def refresh_backtest_ohlcv_data(
     pairs: List[str], timeframes: List[str],
-    datadir: Path, trading_mode: str,
+    datadir: Union[Path, str],
+    trading_mode: str,
     timerange: Optional[TimeRange] = None,
     new_pairs_days: int = 30, erase: bool = False,
     data_format: Optional[str] = None,
@@ -215,15 +288,16 @@ def refresh_backtest_ohlcv_data(
 
 ) -> List[str]:
     """
-    Refresh stored ohlcv data for backtesting and hyperopt operations.
-    Used by freqtrade download-data subcommand.
+    Refresh stored ohlcv data
     :return: List of pairs that are not available.
     """
-    pairs_not_available = []
+
+    datadir = create_datadir(datadir)
     data_handler = get_data_handler(datadir, data_format)
     candle_type = CandleType.get_default(trading_mode)
+    pairs_not_available = []
     process = ''
-    list_pairs = []  # Todo: fetch form API
+    list_pairs = MOCKED_MARKET_PAIRS  # Todo: fetch form API
     for idx, pair in enumerate(pairs, start=1):
         if pair not in list_pairs:
             pairs_not_available.append(pair)
@@ -306,7 +380,8 @@ def _download_trade_history(
             f"from: {from_id}"
         )
         # Default since_ms to 30 days if nothing is given
-        new_trades = []
+        new_trades = [pair, generate_mock_trades(100)]
+        print("new:", new_trades)
         new_trades_df = trades_list_to_df(new_trades[1])
         trades = concat([trades, new_trades_df], axis=0)
         # Remove duplicates to make sure we're not storing data we don't need
@@ -342,7 +417,7 @@ def refresh_backtest_trades_data(
     """
     pairs_not_available = []
     data_handler = get_data_handler(datadir, data_format=data_format)
-    list_pairs = []  # Todo: fetch form API
+    list_pairs = MOCKED_MARKET_PAIRS
     for pair in pairs:
         if pair not in list_pairs:
             pairs_not_available.append(pair)

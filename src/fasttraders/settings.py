@@ -15,8 +15,14 @@ HEARTBEAT_INTERVAL = 60
 # Bot initialization with state name
 BOT_INIT_STATE = 'STARTED'
 
+# Pair
+PAIR_WILDCARDS = [
+    "BTC/USDT",
+    "LTC/USDT",
+    "ETH/USDT"
+]
 # Data
-DATA_PATH = '/data/'
+DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(BASE_DIR)), 'data')
 
 # Telegram
 TELEGRAM_RELOAD = False

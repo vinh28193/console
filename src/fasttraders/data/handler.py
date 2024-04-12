@@ -5,9 +5,13 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Tuple, Optional
 
-from fasttraders.data.converter import trades_convert_types
+from fasttraders.data.converter import (
+    trades_convert_types,
+    trades_df_remove_duplicates, trim_dataframe, clean_ohlcv_dataframe
+)
 from fasttraders.log import logger
 from fasttraders.ultis import misc
+from fasttraders.ultis.timeframe import timeframe_to_seconds
 from pandas import DataFrame
 from fasttraders.constants import (
     ListPairsWithTimeframes,
@@ -15,14 +19,6 @@ from fasttraders.constants import (
 )
 from fasttraders.enums import TradingMode, CandleType
 from fasttraders.ultis.timerange import TimeRange
-
-from freqtrade.freqtrade.data.converter.converter import (
-    trim_dataframe,
-    clean_ohlcv_dataframe
-)
-from freqtrade.freqtrade.data.converter.trade_converter import \
-    trades_df_remove_duplicates
-from freqtrade.freqtrade.exchange.exchange_utils import timeframe_to_seconds
 
 
 class DataHandler(ABC):
@@ -140,8 +136,9 @@ class DataHandler(ABC):
         :return: DataFrame with ohlcv data, or empty DataFrame
         """
 
-    def ohlcv_purge(self, pair: str, timeframe: str,
-                    candle_type: CandleType) -> bool:
+    def ohlcv_purge(
+        self, pair: str, timeframe: str, candle_type: CandleType
+    ) -> bool:
         """
         Remove data for this pair
         :param pair: Delete data for this pair.
@@ -182,12 +179,16 @@ class DataHandler(ABC):
         :return: List of Pairs
         """
         _ext = cls._get_file_extension()
-        _tmp = [re.search(r'^(\S+)(?=\-trades.' + _ext + ')', p.name)
-                for p in datadir.glob(f"*trades.{_ext}")]
+        _tmp = [
+            re.search(r'^(\S+)(?=\-trades.' + _ext + ')', p.name)
+            for p in datadir.glob(f"*trades.{_ext}")
+        ]
         # Check if regex found something and only return these results to
         # avoid exceptions.
-        return [cls.rebuild_pair_from_filename(match[0]) for match in _tmp if
-                match]
+        return [
+            cls.rebuild_pair_from_filename(match[0])
+            for match in _tmp if match
+        ]
 
     @abstractmethod
     def _trades_store(self, pair: str, data: DataFrame) -> None:
@@ -371,8 +372,10 @@ class DataHandler(ABC):
 
             # incomplete candles should only be dropped if we didn't trim the
             # end beforehand.
-            drop_incomplete = drop_incomplete and enddate == pairdf.iloc[-1][
-                'date']
+            drop_incomplete = (
+                drop_incomplete and
+                enddate == pairdf.iloc[-1]['date']
+            )
             pairdf = clean_ohlcv_dataframe(
                 pairdf, timeframe,
                 pair=pair,

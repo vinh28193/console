@@ -7,11 +7,6 @@ class CandleType(str, Enum):
     FUTURES = "futures"
     MARK = "mark"
     INDEX = "index"
-    PREMIUMINDEX = "premiumIndex"
-
-    # TODO: Could take up less memory if these weren't a CandleType
-    FUNDING_RATE = "funding_rate"
-    # BORROW_RATE = "borrow_rate"  # * unimplemented
 
     def __str__(self):
         return f"{self.name.lower()}"

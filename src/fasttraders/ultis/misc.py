@@ -1,22 +1,20 @@
 import gzip
 import logging
+
+import pandas as pd
+import rapidjson
+
 from io import StringIO
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Mapping, Optional, TextIO, Union
 from urllib.parse import urlparse
 
-import pandas as pd
-try:
-    import rapidjson
-except ImportError:
-    import json as rapidjson
-    rapidjson.NM_NATIVE = 1
-
-
 logger = logging.getLogger(__name__)
 
 
-def file_dump_json(filename: Path, data: Any, is_zip: bool = False, log: bool = True) -> None:
+def file_dump_json(
+    filename: Path, data: Any, is_zip: bool = False, log: bool = True
+) -> None:
     """
     Dump JSON data into a file
     :param filename: file to create
@@ -32,12 +30,14 @@ def file_dump_json(filename: Path, data: Any, is_zip: bool = False, log: bool = 
             logger.info(f'dumping json to "{filename}"')
 
         with gzip.open(filename, 'w') as fpz:
-            rapidjson.dump(data, fpz, default=str, number_mode=rapidjson.NM_NATIVE)
+            rapidjson.dump(data, fpz, default=str,
+                           number_mode=rapidjson.NM_NATIVE)
     else:
         if log:
             logger.info(f'dumping json to "{filename}"')
         with filename.open('w') as fp:
-            rapidjson.dump(data, fp, default=str, number_mode=rapidjson.NM_NATIVE)
+            rapidjson.dump(data, fp, default=str,
+                           number_mode=rapidjson.NM_NATIVE)
 
     logger.debug(f'done json to "{filename}"')
 
@@ -68,7 +68,6 @@ def json_load(datafile: Union[gzip.GzipFile, TextIO]) -> Any:
 
 
 def file_load_json(file: Path):
-
     if file.suffix != ".gz":
         gzipfile = file.with_suffix(file.suffix + '.gz')
     else:
@@ -102,11 +101,13 @@ def pair_to_filename(pair: str) -> str:
 
 def deep_merge_dicts(source, destination, allow_null_overrides: bool = True):
     """
-    Values from Source override destination, destination is returned (and modified!!)
+    Values from Source override destination, destination is returned (and
+    modified!!)
     Sample:
     >>> a = { 'first' : { 'rows' : { 'pass' : 'dog', 'number' : '1' } } }
     >>> b = { 'first' : { 'rows' : { 'fail' : 'cat', 'number' : '5' } } }
-    >>> merge(b, a) == { 'first' : { 'rows' : { 'pass' : 'dog', 'fail' : 'cat', 'number' : '5' } } }
+    >>> merge(b, a) == { 'first' : { 'rows' : { 'pass' : 'dog', 'fail' :
+    'cat', 'number' : '5' } } }
     True
     """
     for key, value in source.items():
@@ -124,13 +125,16 @@ def round_dict(d, n):
     """
     Rounds float values in the dict to n digits after the decimal point.
     """
-    return {k: (round(v, n) if isinstance(v, float) else v) for k, v in d.items()}
+    return {k: (round(v, n) if isinstance(v, float) else v) for k, v in
+            d.items()}
 
 
-def safe_value_fallback(obj: dict, key1: str, key2: Optional[str] = None, default_value=None):
+def safe_value_fallback(obj: dict, key1: str, key2: Optional[str] = None,
+                        default_value=None):
     """
     Search a value in obj, return this if it's not None.
-    Then search key2 in obj - return that if it's not none - then use default_value.
+    Then search key2 in obj - return that if it's not none - then use
+    default_value.
     Else falls back to None.
     """
     if key1 in obj and obj[key1] is not None:
@@ -144,7 +148,8 @@ def safe_value_fallback(obj: dict, key1: str, key2: Optional[str] = None, defaul
 dictMap = Union[Dict[str, Any], Mapping[str, Any]]
 
 
-def safe_value_fallback2(dict1: dictMap, dict2: dictMap, key1: str, key2: str, default_value=None):
+def safe_value_fallback2(dict1: dictMap, dict2: dictMap, key1: str, key2: str,
+                         default_value=None):
     """
     Search a value in dict1, return this if it's not None.
     Fall back to dict2 - return key2 from dict2 if it's not None.
@@ -176,12 +181,14 @@ def chunks(lst: List[Any], n: int) -> Iterator[List[Any]]:
 
 def parse_db_uri_for_logging(uri: str):
     """
-    Helper method to parse the DB URI and return the same DB URI with the password censored
+    Helper method to parse the DB URI and return the same DB URI with the
+    password censored
     if it contains it. Otherwise, return the DB URI unchanged
     :param uri: DB URI to parse for logging
     """
     parsed_db_uri = urlparse(uri)
-    if not parsed_db_uri.netloc:  # No need for censoring as no password was provided
+    if not parsed_db_uri.netloc:  # No need for censoring as no password was
+        # provided
         return uri
     pwd = parsed_db_uri.netloc.split(':')[1].split('@')[0]
     return parsed_db_uri.geturl().replace(f':{pwd}@', ':*****@')
@@ -204,7 +211,8 @@ def json_to_dataframe(data: str) -> pd.DataFrame:
     """
     dataframe = pd.read_json(StringIO(data), orient='split')
     if 'date' in dataframe.columns:
-        dataframe['date'] = pd.to_datetime(dataframe['date'], unit='ms', utc=True)
+        dataframe['date'] = pd.to_datetime(dataframe['date'], unit='ms',
+                                           utc=True)
 
     return dataframe
 
@@ -219,7 +227,8 @@ def remove_entry_exit_signals(dataframe: pd.DataFrame):
     return dataframe
 
 
-def append_candles_to_dataframe(left: pd.DataFrame, right: pd.DataFrame) -> pd.DataFrame:
+def append_candles_to_dataframe(left: pd.DataFrame,
+                                right: pd.DataFrame) -> pd.DataFrame:
     """
     Append the `right` dataframe to the `left` dataframe
 

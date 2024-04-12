@@ -1,6 +1,6 @@
 import numpy as np
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Union
 from pandas import DataFrame, to_datetime, concat
 
 from fasttraders.constants import (
@@ -90,8 +90,9 @@ def clean_ohlcv_dataframe(
         return data
 
 
-def ohlcv_fill_up_missing_data(dataframe: DataFrame, timeframe: str,
-                               pair: str) -> DataFrame:
+def ohlcv_fill_up_missing_data(
+    dataframe: DataFrame, timeframe: str, pair: str
+) -> DataFrame:
     """
     Fills up missing data with 0 volume rows,
     using the previous close as price for "open", "high" "low" and "close",
@@ -328,7 +329,7 @@ def trades_to_ohlcv(trades: DataFrame, timeframe: str) -> DataFrame:
 def convert_trades_to_ohlcv(
     pairs: List[str],
     timeframes: List[str],
-    datadir: Path,
+    datadir: Union[Path, str],
     timerange: TimeRange,
     erase: bool = False,
     data_format_ohlcv: str = 'json',
@@ -338,7 +339,8 @@ def convert_trades_to_ohlcv(
     """
     Convert stored trades data to ohlcv data
     """
-    from .utils import get_data_handler
+    from .utils import get_data_handler, create_datadir
+    datadir = create_datadir(datadir)
     data_handler_trades = get_data_handler(
         datadir, data_format=data_format_trades
     )
@@ -382,9 +384,9 @@ def convert_trades_format(
     :param erase: Erase source data (does not apply if source and target
     format are identical)
     """
-    from .utils import get_datahandler
-    src = get_datahandler(datadir, convert_from)
-    trg = get_datahandler(datadir, convert_to)
+    from .utils import get_data_handler
+    src = get_data_handler(datadir, convert_from)
+    trg = get_data_handler(datadir, convert_to)
 
     pairs = src.trades_get_pairs(datadir)
     logger.info(f"Converting trades for {pairs}")

@@ -185,7 +185,7 @@ def timeframe_to_resample_freq(timeframe: str) -> str:
     resample_interval = f'{timeframe_seconds}s'
     if 10000 < timeframe_minutes < 43200:
         resample_interval = '1W-MON'
-    elif timeframe_minutes >= 43200 and timeframe_minutes < 525600:
+    elif 43200 <= timeframe_minutes < 525600:
         # Monthly candles need special treatment to stick to the 1st of the month
         resample_interval = f'{timeframe}S'
     elif timeframe_minutes > 43200:
