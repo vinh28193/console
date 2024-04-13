@@ -1,6 +1,11 @@
+from datetime import datetime, timezone
 from threading import Lock
+from typing import List
+
 from consoles.conf import settings
-from fasttraders.enums import State, RPCMessageType
+from fasttraders.constants import ListPairsWithTimeframes, PairWithTimeframe
+from fasttraders.data.provider import DataProvider
+from fasttraders.enums import State, RPCMessageType, CandleType
 from fasttraders.rpc import RPCManager
 from fasttraders.scheduler import SafeScheduler
 from fasttraders.strategies import SimpleStrategy
@@ -8,12 +13,14 @@ from fasttraders.strategies import SimpleStrategy
 
 class Bot:
     def __init__(self) -> None:
+        self.active_pair_whitelist: List[str] = []
         # Init bot state
         self.state = State.STOPPED
         # Init data
 
         # RPC
         self.rpc: RPCManager = RPCManager(self)
+        self.dp = DataProvider(self)
         # Set initial bot state from config
         initial_state = getattr(settings, "BOT_INIT_STATE", State.STOPPED.name)
         self.state = State[initial_state.upper()]
@@ -23,7 +30,7 @@ class Bot:
 
         self._schedule = SafeScheduler()
         self.strategy = SimpleStrategy(self)
-        self.strategy.ft_bot_start()
+        self.strategy.bot_start()
 
     def notify_status(self, msg: str, msg_type=RPCMessageType.STATUS) -> None:
         """
@@ -42,8 +49,23 @@ class Bot:
     def stopped(self):
         pass
 
-    def update(self) -> None:
-        pass
+    def loop_update(self) -> None:
+        self.active_pair_whitelist = [
+            "BTC/USDT", "LTC/USDT", "ETH/USDT"
+        ]
+        # Refreshing candles
+        self.dp.refresh(
+            [
+                (pair, "5m", CandleType.SPOT)
+                for pair in self.active_pair_whitelist
+            ],
+            self.strategy.gather_informative_pairs())
+
+        self.strategy.bot_loop_start(
+            current_time=datetime.now(timezone.utc)
+        )
+
+        self.strategy.analyzes(self.active_pair_whitelist)
 
     def cleanup(self) -> None:
         print('Cleaning up modules ...')

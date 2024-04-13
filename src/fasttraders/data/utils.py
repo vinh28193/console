@@ -76,7 +76,7 @@ def generate_mock_trades(num_trades):
     return trades
 
 
-def generate_mock_ohlcv(symbol, timeframe, since, limit):
+def generate_mock_ohlcv(timeframe, since, limit):
     ohlcv = []
     start_timestamp = since  # Convert since parameter to milliseconds
     for i in range(limit):
@@ -258,7 +258,7 @@ def _download_pair_history(
         )
         logger.info(f"Getting history of {pair}, timeframe: {timeframe}")
         # Default since_ms to 30 days if nothing is given
-        new_data = generate_mock_ohlcv(pair, 1, since_ms, 100)  # Todo: fetch on API
+        new_data = generate_mock_ohlcv(0.5, since_ms, 10000)  # Todo: fetch on API
         new_dataframe = ohlcv_to_dataframe(
             new_data, timeframe, pair, fill_missing=False, drop_incomplete=True
         )

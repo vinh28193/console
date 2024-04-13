@@ -159,7 +159,7 @@ class Worker:
 
     def running(self) -> None:
         try:
-            self.bot.update()
+            self.bot.loop_update()
         except Exception:  # noqa
             tb = traceback.format_exc()
             hint = 'Issue `/start` if you think it is safe to restart.'
