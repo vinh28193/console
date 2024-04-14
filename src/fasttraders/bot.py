@@ -6,6 +6,7 @@ from consoles.conf import settings
 from fasttraders.constants import ListPairsWithTimeframes, PairWithTimeframe
 from fasttraders.data.provider import DataProvider
 from fasttraders.enums import State, RPCMessageType, CandleType
+from fasttraders.exchange import Exchange
 from fasttraders.rpc import RPCManager
 from fasttraders.scheduler import SafeScheduler
 from fasttraders.strategies import SimpleStrategy
@@ -17,7 +18,7 @@ class Bot:
         # Init bot state
         self.state = State.STOPPED
         # Init data
-
+        self.exchange = Exchange(validate=True)
         # RPC
         self.rpc: RPCManager = RPCManager(self)
         self.dp = DataProvider(self)

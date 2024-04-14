@@ -5,7 +5,8 @@ from fasttraders.enums import CandleType
 
 # DataFrame columns
 DEFAULT_DATAFRAME_COLUMNS = ['date', 'open', 'high', 'low', 'close', 'volume']
-DEFAULT_TRADES_COLUMNS = ['timestamp', 'id', 'type', 'side', 'price', 'amount', 'cost']
+DEFAULT_TRADES_COLUMNS = ['timestamp', 'id', 'type', 'side', 'price', 'amount',
+                          'cost']
 TRADES_DTYPES = {
     'timestamp': 'int64',
     'id': 'str',
@@ -20,6 +21,8 @@ DL_DATA_TIMEFRAMES = ['1m', '5m']
 DATETIME_PRINT_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 # Typing
+# pair, timeframe, candleType, OHLCV, drop last?,
+OHLCVResponse = Tuple[str, str, CandleType, List, bool]
 
 PairWithTimeframe = Tuple[str, str, CandleType]
 ListPairsWithTimeframes = List[PairWithTimeframe]
@@ -34,6 +37,5 @@ BidAsk = Literal['bid', 'ask']
 OBLiteral = Literal['asks', 'bids']
 
 IntOrInf = float
-
 
 EntryExecuteMode = Literal['initial', 'pos_adjust', 'replace']

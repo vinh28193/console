@@ -99,6 +99,10 @@ def generate_mock_ohlcv(timeframe, since, limit):
     return ohlcv
 
 
+async def agenerate_mock_ohlcv(timeframe, since, limit):
+    return generate_mock_ohlcv(timeframe, since, limit)
+
+
 def create_datadir(datadir: Optional[str]) -> Path:
     if isinstance(datadir, Path):
         return datadir
@@ -258,7 +262,8 @@ def _download_pair_history(
         )
         logger.info(f"Getting history of {pair}, timeframe: {timeframe}")
         # Default since_ms to 30 days if nothing is given
-        new_data = generate_mock_ohlcv(0.5, since_ms, 10000)  # Todo: fetch on API
+        new_data = generate_mock_ohlcv(0.5, since_ms,
+                                       10000)  # Todo: fetch on API
         new_dataframe = ohlcv_to_dataframe(
             new_data, timeframe, pair, fill_missing=False, drop_incomplete=True
         )

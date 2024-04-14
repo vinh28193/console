@@ -34,7 +34,7 @@ class DataProvider:
         Refresh data, called with each cycle
         """
         final_pairs = (pairs + helping_pairs) if helping_pairs else pairs
-        print("final_pairs:", final_pairs)
+        self.bot.exchange.refresh_latest_ohlcv(final_pairs)
 
     def ohlcv(
         self,
