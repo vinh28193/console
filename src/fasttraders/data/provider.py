@@ -41,7 +41,7 @@ class DataProvider:
         pair: str,
         timeframe: Optional[str] = None,
         copy: bool = True,
-        candle_type: str = ''
+        candle_type: str = CandleType.SPOT
     ) -> DataFrame:
         """
         Get candle (OHLCV) data for the given pair as DataFrame
@@ -54,7 +54,11 @@ class DataProvider:
                      Use False only for read-only operations (where the
                      dataframe is not modified)
         """
-        return DataFrame()
+        _candle_type = CandleType.from_string(candle_type)
+        return self.bot.exchange.klines(
+            (pair, timeframe, _candle_type),
+            copy=copy
+        )
 
     def set_cached_df(
         self,

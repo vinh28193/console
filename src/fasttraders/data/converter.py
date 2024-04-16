@@ -46,6 +46,7 @@ def ohlcv_to_dataframe(
         'open': 'float', 'high': 'float', 'low': 'float', 'close': 'float',
         'volume': 'float'
     })
+
     return clean_ohlcv_dataframe(
         df, timeframe, pair,
         fill_missing=fill_missing,

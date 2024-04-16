@@ -177,10 +177,13 @@ class Exchange:
                     continue
                 # Deconstruct tuple (has 5 elements)
                 pair, timeframe, c_type, ticks, drop_hint = res
-                drop_incomplete_ = drop_hint if drop_incomplete is None else \
-                    drop_incomplete
+
+                drop_incomplete_ = (
+                    drop_hint if drop_incomplete is None else drop_incomplete
+                )
                 ohlcv_df = self._process_ohlcv_df(
-                    pair, timeframe, c_type, ticks, cache, drop_incomplete_)
+                    pair, timeframe, c_type, ticks, cache, drop_incomplete_
+                )
 
                 results_df[(pair, timeframe, c_type)] = ohlcv_df
 
@@ -238,7 +241,8 @@ class Exchange:
         """
 
         one_call = timeframe_to_msecs(timeframe) * self.ohlcv_candle_limit(
-            timeframe, candle_type, since_ms)
+            timeframe, candle_type, since_ms
+        )
         logger.debug(
             "one_call: %s msecs (%s)",
             one_call,
@@ -247,9 +251,11 @@ class Exchange:
                 only_distance=True
             )
         )
-        input_coroutines = [self._async_get_candle_history(
-            pair, timeframe, candle_type, since) for since in
-            range(since_ms, until_ms or dt_ts(), one_call)]
+        input_coroutines = [
+            self._async_get_candle_history(
+                pair, timeframe, candle_type, since
+            ) for since in range(since_ms, until_ms or dt_ts(), one_call)
+        ]
 
         data: List = []
         # Chunk requests into batches of 100 to avoid overwelming ccxt
@@ -310,6 +316,7 @@ class Exchange:
                 (now - timedelta(seconds=move_to // 1000)).timestamp() * 1000
             )
         if since_ms:
+            print(f"Since ... {since_ms}")
             return self._async_get_historic_ohlcv(
                 pair, timeframe, since_ms=since_ms, raise_=True,
                 candle_type=candle_type)
@@ -335,7 +342,6 @@ class Exchange:
             since_ms = int(
                 (datetime.now() - timedelta(days=10)).timestamp()
             ) * 1000
-        print("candle_limit:", timeframe, since_ms)
         try:
             # candle_limit = self.ohlcv_candle_limit(
             #     timeframe, candle_type=candle_type, since_ms=since_ms
@@ -351,9 +357,8 @@ class Exchange:
             )
 
             from fasttraders.data.utils import agenerate_mock_ohlcv
-
-            data = await agenerate_mock_ohlcv(timeframe, since_ms, 10)
-
+            data = await agenerate_mock_ohlcv(0.5, since_ms, 10)
+            print("data:", data)
             # Some exchanges sort OHLCV in ASC order and others in DESC.
             # Ex: Bittrex returns the list of OHLCV in ASC order (oldest
             # first, newest last)
