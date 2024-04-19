@@ -356,9 +356,16 @@ class Exchange:
                 pair, candle_type, timeframe, since_ms, s
             )
 
-            from fasttraders.data.utils import agenerate_mock_ohlcv
-            data = await agenerate_mock_ohlcv(0.5, since_ms, 10)
-            print("data:", data)
+            from fasttraders.ultis.test import async_generate_test_data_raw
+            print("timeframe = ", timeframe)
+            print("size = ", 20)
+            print("start=", since_ms)
+            try:
+
+                data = await async_generate_test_data_raw(timeframe, 20, since_ms)
+            except Exception as e:
+                print("e:", e)
+                raise e
             # Some exchanges sort OHLCV in ASC order and others in DESC.
             # Ex: Bittrex returns the list of OHLCV in ASC order (oldest
             # first, newest last)
